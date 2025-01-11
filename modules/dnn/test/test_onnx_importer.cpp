@@ -1002,6 +1002,10 @@ TEST_P(Test_ONNX_layers, MatMul_init_bcast)
     testONNXModels("matmul_init_bcast");
 }
 
+TEST_P(Test_ONNX_layers, MatMul_bcast_3dx2d) {
+    testONNXModels("matmul_bcast");
+}
+
 TEST_P(Test_ONNX_layers, MatMulAdd)
 {
 #if defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_EQ(2022010000)
@@ -2687,7 +2691,7 @@ void yoloPostProcessing(
     }
 
     if (model_name == "yolonas"){
-        // outs contains 2 elemets of shape [1, 8400, 80] and [1, 8400, 4]. Concat them to get [1, 8400, 84]
+        // outs contains 2 elemets of shape [1, 8400, nc] and [1, 8400, 4]. Concat them to get [1, 8400, nc+4]
         Mat concat_out;
         // squeeze the first dimension
         outs[0] = outs[0].reshape(1, outs[0].size[1]);
@@ -2697,12 +2701,12 @@ void yoloPostProcessing(
         // remove the second element
         outs.pop_back();
         // unsqueeze the first dimension
-        outs[0] = outs[0].reshape(0, std::vector<int>{1, 8400, 84});
+        outs[0] = outs[0].reshape(0, std::vector<int>{1, outs[0].size[0], outs[0].size[1]});
     }
 
-    // assert if last dim is 85 or 84
-    CV_CheckEQ(outs[0].dims, 3, "Invalid output shape. The shape should be [1, #anchors, 85 or 84]");
-    CV_CheckEQ((outs[0].size[2] == nc + 5 || outs[0].size[2] == 80 + 4), true, "Invalid output shape: ");
+    // assert if last dim is nc+5 or nc+4
+    CV_CheckEQ(outs[0].dims, 3, "Invalid output shape. The shape should be [1, #anchors, nc+5 or nc+4]");
+    CV_CheckEQ((outs[0].size[2] == nc + 5 || outs[0].size[2] == nc + 4), true, "Invalid output shape: ");
 
     for (auto preds : outs){
 
@@ -3196,6 +3200,37 @@ TEST_P(Test_ONNX_layers, MatMulAddFusion) {
 
 TEST_P(Test_ONNX_layers, ClipDivSharedConstant) {
     testONNXModels("clip_div_shared_constant");
+}
+
+TEST_P(Test_ONNX_layers, TopK) {
+    auto test = [&](const std::string &basename, double l1 = 0, double lInf = 0) {
+        std::string onnxmodel = _tf("models/" + basename + ".onnx", true);
+        Mat input = readTensorFromONNX(_tf("data/input_" + basename + ".pb"));
+        Mat output_ref_val = readTensorFromONNX(_tf("data/output_" + basename + "_0.pb")),
+            output_ref_ind = readTensorFromONNX(_tf("data/output_" + basename + "_1.pb"));
+
+        checkBackend(&input, &output_ref_val);
+        checkBackend(&input, &output_ref_ind);
+        Net net = readNetFromONNX(onnxmodel);
+        net.setPreferableBackend(backend);
+        net.setPreferableTarget(target);
+
+        net.setInput(input);
+        std::vector<Mat> outputs;
+        net.forward(outputs, std::vector<std::string>{"values", "indices"});
+
+        Mat output_res_val = outputs.front(),
+            output_res_ind = outputs.back();
+        output_res_ind.convertTo(output_res_ind, CV_32S); // TODO: remove this conversion on 5.x
+
+        normAssert(output_ref_val, output_res_val, (basename + " values").c_str(), l1 ? l1 : default_l1, lInf ? lInf : default_lInf);
+        normAssert(output_ref_ind, output_res_ind, (basename + " indices").c_str(), l1 ? l1 : default_l1, lInf ? lInf : default_lInf);
+        expectNoFallbacksFromIE(net);
+    };
+
+    test("top_k");
+    test("top_k_negative_axis");
+    test("top_k_smallest");
 }
 
 INSTANTIATE_TEST_CASE_P(/**/, Test_ONNX_nets, dnnBackendsAndTargets());

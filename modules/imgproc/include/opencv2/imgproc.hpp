@@ -48,7 +48,7 @@
 /**
 @defgroup imgproc Image Processing
 
-This module includes image-processing functions.
+This module offers a comprehensive suite of image processing functions, enabling tasks such as those listed above.
 
 @{
     @defgroup imgproc_filter Image Filtering
@@ -236,7 +236,7 @@ enum MorphShapes {
     MORPH_CROSS   = 1, //!< a cross-shaped structuring element:
                        //!< \f[E_{ij} = \begin{cases} 1 & \texttt{if } {i=\texttt{anchor.y } {or } {j=\texttt{anchor.x}}} \\0 & \texttt{otherwise} \end{cases}\f]
     MORPH_ELLIPSE = 2 //!< an elliptic structuring element, that is, a filled ellipse inscribed
-                      //!< into the rectangle Rect(0, 0, esize.width, 0.esize.height)
+                      //!< into the rectangle Rect(0, 0, esize.width, esize.height)
 };
 
 //! @} imgproc_filter
@@ -2165,11 +2165,13 @@ Must fall between 0 and max_theta.
 @param max_theta For standard and multi-scale Hough transform, an upper bound for the angle.
 Must fall between min_theta and CV_PI. The actual maximum angle in the accumulator may be slightly
 less than max_theta, depending on the parameters min_theta and theta.
+@param use_edgeval True if you want to use weighted Hough transform.
  */
 CV_EXPORTS_W void HoughLines( InputArray image, OutputArray lines,
                               double rho, double theta, int threshold,
                               double srn = 0, double stn = 0,
-                              double min_theta = 0, double max_theta = CV_PI );
+                              double min_theta = 0, double max_theta = CV_PI,
+                              bool use_edgeval = false );
 
 /** @brief Finds line segments in a binary image using the probabilistic Hough transform.
 
@@ -3726,10 +3728,11 @@ floating-point.
 @param code color space conversion code (see #ColorConversionCodes).
 @param dstCn number of channels in the destination image; if the parameter is 0, the number of the
 channels is derived automatically from src and code.
+@param hint Implementation modfication flags. See #AlgorithmHint
 
 @see @ref imgproc_color_conversions
  */
-CV_EXPORTS_W void cvtColor( InputArray src, OutputArray dst, int code, int dstCn = 0 );
+CV_EXPORTS_W void cvtColor( InputArray src, OutputArray dst, int code, int dstCn = 0, AlgorithmHint hint = cv::ALGO_HINT_DEFAULT );
 
 /** @brief Converts an image from one color space to another where the source image is
 stored in two planes.
@@ -3748,8 +3751,9 @@ This function only supports YUV420 to RGB conversion as of now.
 - #COLOR_YUV2RGB_NV21
 - #COLOR_YUV2BGRA_NV21
 - #COLOR_YUV2RGBA_NV21
+@param hint Implementation modfication flags. See #AlgorithmHint
 */
-CV_EXPORTS_W void cvtColorTwoPlane( InputArray src1, InputArray src2, OutputArray dst, int code );
+CV_EXPORTS_W void cvtColorTwoPlane( InputArray src1, InputArray src2, OutputArray dst, int code, AlgorithmHint hint = cv::ALGO_HINT_DEFAULT );
 
 /** @brief main function for all demosaicing processes
 
@@ -4340,7 +4344,7 @@ CV_EXPORTS_W RotatedRect fitEllipseAMS( InputArray points );
 
  The function calculates the ellipse that fits a set of 2D points.
  It returns the rotated rectangle in which the ellipse is inscribed.
- The Direct least square (Direct) method by @cite Fitzgibbon1999 is used.
+ The Direct least square (Direct) method by @cite oy1998NumericallySD is used.
 
  For an ellipse, this basis set is \f$ \chi= \left(x^2, x y, y^2, x, y, 1\right) \f$,
  which is a set of six free coefficients \f$ A^T=\left\{A_{\text{xx}},A_{\text{xy}},A_{\text{yy}},A_x,A_y,A_0\right\} \f$.
