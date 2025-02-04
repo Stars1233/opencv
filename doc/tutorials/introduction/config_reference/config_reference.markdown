@@ -217,7 +217,7 @@ Following options can be used to produce special builds with instrumentation or 
 | `ENABLE_BUILD_HARDENING` | GCC, Clang, MSVC | Enable compiler options which reduce possibility of code exploitation.  |
 | `ENABLE_LTO` | GCC, Clang, MSVC | Enable Link Time Optimization (LTO). |
 | `ENABLE_THIN_LTO` | Clang | Enable thin LTO which incorporates intermediate bitcode to binaries allowing consumers optimize their applications later. |
-| `OPENCV_ALGO_HINT_DEFAULT` | Any | Set default OpenCV implementation hint value: `ALGO_HINT_ACCURATE` or `ALGO_HINT_APROX`. Dangerous! The option  changes behaviour globally and may affect accuracy of many algorithms. |
+| `OPENCV_ALGO_HINT_DEFAULT` | Any | Set default OpenCV implementation hint value: `ALGO_HINT_ACCURATE` or `ALGO_HINT_APPROX`. Dangerous! The option  changes behaviour globally and may affect accuracy of many algorithms. |
 
 @see [GCC instrumentation](https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html)
 @see [Build hardening](https://en.wikipedia.org/wiki/Hardening_(computing))
@@ -310,11 +310,14 @@ Following formats can be read by OpenCV without help of any third-party library:
 | [JPEG2000 with OpenJPEG](https://en.wikipedia.org/wiki/OpenJPEG) | `WITH_OPENJPEG` | _ON_ | `BUILD_OPENJPEG` |
 | [JPEG2000 with JasPer](https://en.wikipedia.org/wiki/JasPer) | `WITH_JASPER` | _ON_ (see note) | `BUILD_JASPER` |
 | [EXR](https://en.wikipedia.org/wiki/OpenEXR) | `WITH_OPENEXR` | _ON_ | `BUILD_OPENEXR` |
+| [JPEG XL](https://en.wikipedia.org/wiki/JPEG_XL) | `WITH_JPEGXL` | _ON_ | Not supported. (see note) |
 
 All libraries required to read images in these formats are included into OpenCV and will be built automatically if not found at the configuration stage. Corresponding `BUILD_*` options will force building and using own libraries, they are enabled by default on some platforms, e.g. Windows.
 
 @note OpenJPEG have higher priority than JasPer which is deprecated. In order to use JasPer, OpenJPEG must be disabled.
+@note (JPEG XL) OpenCV doesn't contain libjxl source code, so `BUILD_JPEGXL` is not supported.
 
+@warning OpenEXR ver 2.2 or earlier cannot be used in combination with C++17 or later. In this case, updating OpenEXR ver 2.3.0 or later is required.
 
 ### GDAL integration
 
@@ -393,7 +396,7 @@ There are multiple less popular frameworks which can be used to read and write v
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `WITH_1394` | _ON_ | [IIDC IEEE1394](https://en.wikipedia.org/wiki/IEEE_1394#IIDC) support using DC1394 library |
+| `WITH_1394` | _OFF_ | [IIDC IEEE1394](https://en.wikipedia.org/wiki/IEEE_1394#IIDC) support using DC1394 library |
 | `WITH_OPENNI` | _OFF_ | [OpenNI](https://en.wikipedia.org/wiki/OpenNI) can be used to capture data from depth-sensing cameras. Deprecated. |
 | `WITH_OPENNI2` | _OFF_ | [OpenNI2](https://structure.io/openni) can be used to capture data from depth-sensing cameras. |
 | `WITH_PVAPI` | _OFF_ | [PVAPI](https://www.alliedvision.com/en/support/software-downloads.html) is legacy SDK for Prosilica GigE cameras. Deprecated. |
@@ -455,6 +458,8 @@ OpenCV relies on various GUI libraries for window drawing.
 | `WITH_WIN32UI` | _ON_ | Windows | [WinAPI](https://en.wikipedia.org/wiki/Windows_API) is a standard GUI API in Windows. |
 | N/A | _ON_ | macOS | [Cocoa](https://en.wikipedia.org/wiki/Cocoa_(API)) is a framework used in macOS. |
 | `WITH_QT` | _OFF_ | Cross-platform | [Qt](https://en.wikipedia.org/wiki/Qt_(software)) is a cross-platform GUI framework. |
+| `WITH_FRAMEBUFFER` | _OFF_ | Linux | Experimental backend using [Linux framebuffer](https://en.wikipedia.org/wiki/Linux_framebuffer). Have limited functionality but does not require dependencies. |
+| `WITH_FRAMEBUFFER_XVFB` | _OFF_ | Linux | Enables special output mode of the FRAMEBUFFER backend compatible with [xvfb](https://en.wikipedia.org/wiki/Xvfb) tool. Requires some X11 headers. |
 
 @note OpenCV compiled with Qt support enables advanced _highgui_ interface, see @ref highgui_qt for details.
 
@@ -586,7 +591,6 @@ Following options can be used to change installation layout for common scenarios
 | `BUILD_FAT_JAVA_LIB` | _ON_ (for static Android builds) | Build single _opencv_java_ dynamic library containing all library functionality bundled with Java bindings. |
 | `BUILD_opencv_python2` | _ON_ | Build python2 bindings (deprecated). Python with development files and numpy must be installed. |
 | `BUILD_opencv_python3` | _ON_ | Build python3 bindings. Python with development files and numpy must be installed. |
-| `CAROTENE_NEON_ARCH` | '(auto)' | Switch NEON Arch for Carotene. If it sets nothing, it will be auto-detected. If it sets 8, ARMv8(and later) is used. Otherwise, ARMv7 is used. |
 
 TODO: need separate tutorials covering bindings builds
 

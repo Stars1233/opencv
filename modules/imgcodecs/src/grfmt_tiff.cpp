@@ -171,7 +171,7 @@ public:
         {
             n = size - pos;
         }
-        memcpy(buffer, buf.ptr() + pos, n);
+        std::memcpy(buffer, buf.ptr() + pos, n);
         helper->m_buf_pos += n;
         return n;
     }
@@ -279,6 +279,7 @@ bool TiffDecoder::readHeader()
 
             m_width = wdth;
             m_height = hght;
+            m_frame_count = TIFFNumberOfDirectories(tif);
             if (ncn == 3 && photometric == PHOTOMETRIC_LOGLUV)
             {
                 m_type = CV_32FC3;
@@ -847,9 +848,9 @@ bool  TiffDecoder::readData( Mat& img )
                                     switch ( convert_flag )
                                     {
                                     case MAKE_FLAG( 1, 1 ): // GRAY to GRAY
-                                        memcpy( (void*) img_line_buffer,
-                                                (void*) bstart,
-                                                tile_width * sizeof(uchar) );
+                                        std::memcpy( (void*) img_line_buffer,
+                                                     (void*) bstart,
+                                                     tile_width * sizeof(uchar) );
                                         break;
 
                                     case MAKE_FLAG( 1, 3 ): // GRAY to BGR
@@ -866,9 +867,9 @@ bool  TiffDecoder::readData( Mat& img )
 
                                     case MAKE_FLAG( 3, 3 ): // RGB to BGR
                                         if (m_use_rgb)
-                                            memcpy( (void*) img_line_buffer,
-                                                    (void*) bstart,
-                                                    tile_width * sizeof(uchar) );
+                                            std::memcpy( (void*) img_line_buffer,
+                                                         (void*) bstart,
+                                                         tile_width * sizeof(uchar) );
                                         else
                                             icvCvt_BGR2RGB_8u_C3R( bstart, 0,
                                                     img_line_buffer, 0,
@@ -978,7 +979,7 @@ bool  TiffDecoder::readData( Mat& img )
                                     {
                                         CV_CheckEQ(wanted_channels, 3, "");
                                         if (m_use_rgb)
-                                            memcpy(buffer16, img.ptr<ushort>(img_y + i, x), tile_width * sizeof(ushort));
+                                            std::memcpy(buffer16, img.ptr<ushort>(img_y + i, x), tile_width * sizeof(ushort));
                                         else
                                             icvCvt_RGB2BGR_16u_C3R(buffer16, 0,
                                                     img.ptr<ushort>(img_y + i, x), 0,
@@ -1010,9 +1011,9 @@ bool  TiffDecoder::readData( Mat& img )
                                     CV_CheckEQ(wanted_channels, 1, "");
                                     if( ncn == 1 )
                                     {
-                                        memcpy(img.ptr<ushort>(img_y + i, x),
-                                               buffer16,
-                                               tile_width*sizeof(ushort));
+                                        std::memcpy(img.ptr<ushort>(img_y + i, x),
+                                                    buffer16,
+                                                    tile_width*sizeof(ushort));
                                     }
                                     else
                                     {
@@ -1099,16 +1100,6 @@ bool TiffEncoder::isFormatSupported( int depth ) const
     return depth == CV_8U || depth == CV_8S || depth == CV_16U || depth == CV_16S || depth == CV_32S || depth == CV_32F || depth == CV_64F;
 }
 
-void  TiffEncoder::writeTag( WLByteStream& strm, TiffTag tag,
-                             TiffFieldType fieldType,
-                             int count, int value )
-{
-    strm.putWord( tag );
-    strm.putWord( fieldType );
-    strm.putDWord( count );
-    strm.putDWord( value );
-}
-
 class TiffEncoderBufHelper
 {
 public:
@@ -1127,10 +1118,16 @@ public:
                                /*map=*/0, /*unmap=*/0 );
     }
 
-    static tmsize_t read( thandle_t /*handle*/, void* /*buffer*/, tmsize_t /*n*/ )
+    static tmsize_t read( thandle_t handle, void* buffer, tmsize_t n )
     {
-        // Not used for encoding.
-        return 0;
+        // Used for imencodemulti() to stores multi-images.
+        TiffEncoderBufHelper *helper = reinterpret_cast<TiffEncoderBufHelper*>(handle);
+        size_t begin = (size_t)helper->m_buf_pos;
+        size_t end = begin + n;
+        CV_CheckGT( helper->m_buf->size(), end , "do not be over-run buffer");
+        std::memcpy(buffer, &(*helper->m_buf)[begin], n);
+        helper->m_buf_pos = end;
+        return n;
     }
 
     static tmsize_t write( thandle_t handle, void* buffer, tmsize_t n )
@@ -1142,7 +1139,7 @@ public:
         {
             helper->m_buf->resize(end);
         }
-        memcpy(&(*helper->m_buf)[begin], buffer, n);
+        std::memcpy(&(*helper->m_buf)[begin], buffer, n);
         helper->m_buf_pos = end;
         return n;
     }
@@ -1359,7 +1356,7 @@ bool TiffEncoder::writeLibTiff( const std::vector<Mat>& img_vec, const std::vect
             {
                 case 1:
                 {
-                    memcpy(buffer, img.ptr(y), scanlineSize);
+                    std::memcpy(buffer, img.ptr(y), scanlineSize);
                     break;
                 }
 

@@ -3805,7 +3805,7 @@ namespace fisheye
     @param imagePoints Output array of image points, 2xN/Nx2 1-channel or 1xN/Nx1 2-channel, or
     vector\<Point2f\>.
     @param affine
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param alpha The skew coefficient.
     @param jacobian Optional output 2Nx15 jacobian matrix of derivatives of image points with respect
@@ -3829,21 +3829,36 @@ namespace fisheye
 
     @param undistorted Array of object points, 1xN/Nx1 2-channel (or vector\<Point2f\> ), where N is
     the number of points in the view.
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param alpha The skew coefficient.
     @param distorted Output array of image points, 1xN/Nx1 2-channel, or vector\<Point2f\> .
 
     Note that the function assumes the camera intrinsic matrix of the undistorted points to be identity.
-    This means if you want to distort image points you have to multiply them with \f$K^{-1}\f$.
+    This means if you want to distort image points you have to multiply them with \f$K^{-1}\f$ or
+    use another function overload.
      */
     CV_EXPORTS_W void distortPoints(InputArray undistorted, OutputArray distorted, InputArray K, InputArray D, double alpha = 0);
+
+    /** @overload
+    Overload of distortPoints function to handle cases when undistorted points are obtained with non-identity
+    camera matrix, e.g. output of #estimateNewCameraMatrixForUndistortRectify.
+    @param undistorted Array of object points, 1xN/Nx1 2-channel (or vector\<Point2f\> ), where N is
+    the number of points in the view.
+    @param Kundistorted Camera intrinsic matrix used as new camera matrix for undistortion.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
+    @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
+    @param alpha The skew coefficient.
+    @param distorted Output array of image points, 1xN/Nx1 2-channel, or vector\<Point2f\> .
+    @sa estimateNewCameraMatrixForUndistortRectify
+    */
+    CV_EXPORTS_W void distortPoints(InputArray undistorted, OutputArray distorted, InputArray Kundistorted, InputArray K, InputArray D, double alpha = 0);
 
     /** @brief Undistorts 2D points using fisheye model
 
     @param distorted Array of object points, 1xN/Nx1 2-channel (or vector\<Point2f\> ), where N is the
     number of points in the view.
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param R Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3
     1-channel or 1x1 3-channel
@@ -3858,7 +3873,7 @@ namespace fisheye
     /** @brief Computes undistortion and rectification maps for image transform by #remap. If D is empty zero
     distortion is used, if R or P is empty identity matrixes are used.
 
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param R Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3
     1-channel or 1x1 3-channel
@@ -3876,7 +3891,7 @@ namespace fisheye
 
     @param distorted image with fisheye lens distortion.
     @param undistorted Output image with compensated fisheye lens distortion.
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param Knew Camera intrinsic matrix of the distorted image. By default, it is the identity matrix but you
     may additionally scale and shift the result by using a different matrix.
@@ -3905,7 +3920,7 @@ namespace fisheye
 
     /** @brief Estimates new camera intrinsic matrix for undistortion or rectification.
 
-    @param K Camera intrinsic matrix \f$cameramatrix{K}\f$.
+    @param K Camera intrinsic matrix \f$\cameramatrix{K}\f$.
     @param image_size Size of the image
     @param D Input vector of distortion coefficients \f$\distcoeffsfisheye\f$.
     @param R Rectification transformation in the object space: 3x3 1-channel, or vector: 3x1/1x3
@@ -3932,7 +3947,7 @@ namespace fisheye
     @ref fisheye::CALIB_USE_INTRINSIC_GUESS is specified, some or all of fx, fy, cx, cy must be
     initialized before calling the function.
     @param D Output vector of distortion coefficients \f$\distcoeffsfisheye\f$.
-    @param rvecs Output vector of rotation vectors (see Rodrigues ) estimated for each pattern view.
+    @param rvecs Output vector of rotation vectors (see @ref Rodrigues ) estimated for each pattern view.
     That is, each k-th rotation vector together with the corresponding k-th translation vector (see
     the next output parameter description) brings the calibration pattern from the model coordinate
     space (in which object points are specified) to the world coordinate space, that is, a real
@@ -4060,6 +4075,40 @@ optimization. It is the \f$max(width,height)/\pi\f$ or the provided \f$f_x\f$, \
     the provided rvec and tvec values as initial approximations of the rotation and translation
     vectors, respectively, and further optimizes them.
     @param flags Method for solving a PnP problem: see @ref calib3d_solvePnP_flags
+    @param criteria Termination criteria for internal undistortPoints call.
+    The function interally undistorts points with @ref undistortPoints and call @ref cv::solvePnP,
+    thus the input are very similar. More information about Perspective-n-Points is described in @ref calib3d_solvePnP
+    for more information.
+    */
+    CV_EXPORTS_W bool solvePnP( InputArray objectPoints, InputArray imagePoints,
+                                InputArray cameraMatrix, InputArray distCoeffs,
+                                OutputArray rvec, OutputArray tvec,
+                                bool useExtrinsicGuess = false, int flags = SOLVEPNP_ITERATIVE,
+                                TermCriteria criteria = TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 10, 1e-8)
+                              );
+
+    /**
+    @brief Finds an object pose from 3D-2D point correspondences using the RANSAC scheme for fisheye camera moodel.
+
+    @param objectPoints Array of object points in the object coordinate space, Nx3 1-channel or
+    1xN/Nx1 3-channel, where N is the number of points. vector\<Point3d\> can be also passed here.
+    @param imagePoints Array of corresponding image points, Nx2 1-channel or 1xN/Nx1 2-channel,
+    where N is the number of points. vector\<Point2d\> can be also passed here.
+    @param cameraMatrix Input camera intrinsic matrix \f$\cameramatrix{A}\f$ .
+    @param distCoeffs Input vector of distortion coefficients (4x1/1x4).
+    @param rvec Output rotation vector (see @ref Rodrigues ) that, together with tvec, brings points from
+    the model coordinate system to the camera coordinate system.
+    @param tvec Output translation vector.
+    @param useExtrinsicGuess Parameter used for #SOLVEPNP_ITERATIVE. If true (1), the function uses
+    the provided rvec and tvec values as initial approximations of the rotation and translation
+    vectors, respectively, and further optimizes them.
+    @param iterationsCount Number of iterations.
+    @param reprojectionError Inlier threshold value used by the RANSAC procedure. The parameter value
+    is the maximum allowed distance between the observed and computed point projections to consider it
+    an inlier.
+    @param confidence The probability that the algorithm produces a useful result.
+    @param inliers Output vector that contains indices of inliers in objectPoints and imagePoints .
+    @param flags Method for solving a PnP problem: see @ref calib3d_solvePnP_flags
     This function returns the rotation and the translation vectors that transform a 3D point expressed in the object
     coordinate frame to the camera coordinate frame, using different methods:
     - P3P methods (@ref SOLVEPNP_P3P, @ref SOLVEPNP_AP3P): need 4 input points to return a unique solution.
@@ -4073,15 +4122,17 @@ optimization. It is the \f$max(width,height)/\pi\f$ or the provided \f$f_x\f$, \
     - for all the other flags, number of input points must be >= 4 and object points can be in any configuration.
     @param criteria Termination criteria for internal undistortPoints call.
     The function interally undistorts points with @ref undistortPoints and call @ref cv::solvePnP,
-    thus the input are very similar. Check there and Perspective-n-Points is described in @ref calib3d_solvePnP
+    thus the input are very similar. More information about Perspective-n-Points is described in @ref calib3d_solvePnP
     for more information.
     */
-    CV_EXPORTS_W bool solvePnP( InputArray objectPoints, InputArray imagePoints,
-                                InputArray cameraMatrix, InputArray distCoeffs,
-                                OutputArray rvec, OutputArray tvec,
-                                bool useExtrinsicGuess = false, int flags = SOLVEPNP_ITERATIVE,
-                                TermCriteria criteria = TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 10, 1e-8)
-                              );
+    CV_EXPORTS_W bool solvePnPRansac( InputArray objectPoints, InputArray imagePoints,
+                                      InputArray cameraMatrix, InputArray distCoeffs,
+                                      OutputArray rvec, OutputArray tvec,
+                                      bool useExtrinsicGuess = false, int iterationsCount = 100,
+                                      float reprojectionError = 8.0, double confidence = 0.99,
+                                      OutputArray inliers = noArray(), int flags = SOLVEPNP_ITERATIVE,
+                                      TermCriteria criteria = TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 10, 1e-8)
+                                    );
 
 //! @} calib3d_fisheye
 } // end namespace fisheye

@@ -8,7 +8,7 @@ ocv_add_dispatched_file_force_all("layers/layers_common" AVX AVX2 AVX512_SKX RVV
 ocv_add_dispatched_file_force_all("int8layers/layers_common" AVX2 AVX512_SKX RVV LASX)
 ocv_add_dispatched_file_force_all("layers/cpu_kernels/conv_block" AVX AVX2 NEON NEON_FP16)
 ocv_add_dispatched_file_force_all("layers/cpu_kernels/conv_depthwise" AVX AVX2 RVV LASX)
-ocv_add_dispatched_file_force_all("layers/cpu_kernels/conv_winograd_f63" AVX AVX2 NEON_FP16)
+ocv_add_dispatched_file("layers/cpu_kernels/conv_winograd_f63" AVX AVX2 NEON NEON_FP16)
 ocv_add_dispatched_file_force_all("layers/cpu_kernels/fast_gemm_kernels" AVX AVX2 NEON LASX)
 
 ocv_add_module(dnn opencv_core opencv_imgproc WRAP python java objc js)
@@ -213,7 +213,7 @@ file(GLOB_RECURSE dnn_int_hdrs
 )
 set(dnn_plugin_srcs ${dnn_srcs} ${dnn_int_hdrs})
 ocv_list_filterout_ex(dnn_plugin_srcs
-    "/src/dnn.cpp$|/src/dnn_utils.cpp$|/src/dnn_utils.cpp$|/src/dnn_read.cpp$|/src/registry.cpp$|/src/backend.cpp$"
+    "/src/dnn.cpp$|/src/dnn_utils.cpp$|/src/dnn_read.cpp$|/src/registry.cpp$|/src/backend.cpp$"
     # importers
     "/src/(caffe|darknet|onnx|tensorflow|torch)/"
     # executors

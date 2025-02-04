@@ -293,7 +293,7 @@ const videoio_container_get_params_t videoio_container_get_params[] =
 
 INSTANTIATE_TEST_CASE_P(/**/, videoio_container_get, testing::ValuesIn(videoio_container_get_params));
 
-typedef tuple<string, string, int, int> videoio_encapsulate_params_t;
+typedef tuple<string, string, int, int, bool, bool> videoio_encapsulate_params_t;
 typedef testing::TestWithParam< videoio_encapsulate_params_t > videoio_encapsulate;
 
 TEST_P(videoio_encapsulate, write)
@@ -307,6 +307,8 @@ TEST_P(videoio_encapsulate, write)
     const int idrPeriod = get<2>(GetParam());
     const int nFrames = get<3>(GetParam());
     const string fileNameOut = tempfile(cv::format("test_encapsulated_stream.%s", ext.c_str()).c_str());
+    const bool setPts = get<4>(GetParam());
+    const bool tsWorking = get<5>(GetParam());
 
     // Use VideoWriter to encapsulate encoded video read with VideoReader
     {
@@ -320,12 +322,15 @@ TEST_P(videoio_encapsulate, write)
         capRaw.retrieve(extraData, codecExtradataIndex);
         const int fourcc = static_cast<int>(capRaw.get(CAP_PROP_FOURCC));
         const bool mpeg4 = (fourcc == fourccFromString("FMP4"));
-
         VideoWriter container(fileNameOut, api, fourcc, fps, { width, height }, { VideoWriterProperties::VIDEOWRITER_PROP_RAW_VIDEO, 1, VideoWriterProperties::VIDEOWRITER_PROP_KEY_INTERVAL, idrPeriod });
         ASSERT_TRUE(container.isOpened());
         Mat rawFrame;
         for (int i = 0; i < nFrames; i++) {
             ASSERT_TRUE(capRaw.read(rawFrame));
+            if (setPts && i == 0) {
+                double dts = capRaw.get(CAP_PROP_DTS_DELAY);
+                ASSERT_TRUE(container.set(VIDEOWRITER_PROP_DTS_DELAY, dts)) << "dts=" << dts;
+            }
             ASSERT_FALSE(rawFrame.empty());
             if (i == 0 && mpeg4) {
                 Mat tmp = rawFrame.clone();
@@ -335,6 +340,10 @@ TEST_P(videoio_encapsulate, write)
                 rawFrame = Mat(1, newSz, CV_8UC1);
                 memcpy(rawFrame.data, extraData.data, extraData.total());
                 memcpy(rawFrame.data + extraData.total(), tmp.data, tmp.total());
+            }
+            if (setPts) {
+                double pts = capRaw.get(CAP_PROP_PTS);
+                ASSERT_TRUE(container.set(VIDEOWRITER_PROP_PTS, pts)) << "pts=" << pts;
             }
             container.write(rawFrame);
         }
@@ -362,11 +371,13 @@ TEST_P(videoio_encapsulate, write)
             ASSERT_TRUE(capActual.read(actual));
             ASSERT_FALSE(actual.empty());
             ASSERT_EQ(0, cvtest::norm(reference, actual, NORM_INF));
-
             ASSERT_TRUE(capActualRaw.grab());
             const bool keyFrameActual = capActualRaw.get(CAP_PROP_LRF_HAS_KEY_FRAME) == 1.;
             const bool keyFrameReference = idrPeriod ? i % idrPeriod == 0 : 1;
             ASSERT_EQ(keyFrameReference, keyFrameActual);
+            if (tsWorking) {
+                ASSERT_EQ(round(capReference.get(CAP_PROP_POS_MSEC)), round(capActual.get(CAP_PROP_POS_MSEC)));
+            }
         }
     }
 
@@ -375,30 +386,29 @@ TEST_P(videoio_encapsulate, write)
 
 const videoio_encapsulate_params_t videoio_encapsulate_params[] =
 {
-    videoio_encapsulate_params_t("video/big_buck_bunny.h264", "avi", 125, 125),
-    videoio_encapsulate_params_t("video/big_buck_bunny.h265", "mp4", 125, 125),
-    videoio_encapsulate_params_t("video/big_buck_bunny.wmv", "wmv", 12, 13),
-    videoio_encapsulate_params_t("video/big_buck_bunny.mp4", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/big_buck_bunny.mjpg.avi", "mp4", 0, 4),
-    videoio_encapsulate_params_t("video/big_buck_bunny.mov", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/big_buck_bunny.avi", "mp4", 125, 125),
-    videoio_encapsulate_params_t("video/big_buck_bunny.mpg", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/VID00003-20100701-2204.wmv", "wmv", 12, 13),
-    videoio_encapsulate_params_t("video/VID00003-20100701-2204.mpg", "mp4", 12,13),
-    videoio_encapsulate_params_t("video/VID00003-20100701-2204.avi", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/VID00003-20100701-2204.3GP", "mp4", 51, 52),
-    videoio_encapsulate_params_t("video/sample_sorenson.avi", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libxvid.mp4", "mp4", 3, 4),
-    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.mpeg2video.mp4", "mp4", 12, 13),
-    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.mjpeg.mp4", "mp4", 0, 5),
-    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libx264.mp4", "avi", 15, 15),
-    videoio_encapsulate_params_t("../cv/tracking/faceocc2/data/faceocc2.webm", "webm", 128, 129),
-    videoio_encapsulate_params_t("../cv/video/1920x1080.avi", "mp4", 12, 13),
-    videoio_encapsulate_params_t("../cv/video/768x576.avi", "avi", 15, 16)
+    videoio_encapsulate_params_t("video/big_buck_bunny.h264", "avi", 125, 125, false, false), // tsWorking = false: no timestamp information
+    videoio_encapsulate_params_t("video/big_buck_bunny.h265", "mp4", 125, 125, false, false), // tsWorking = false: no timestamp information
+    videoio_encapsulate_params_t("video/big_buck_bunny.wmv", "wmv", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/big_buck_bunny.mp4", "mp4", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/big_buck_bunny.mjpg.avi", "mp4", 0, 4, false, true),
+    videoio_encapsulate_params_t("video/big_buck_bunny.mov", "mp4", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/big_buck_bunny.avi", "mp4", 125, 125, false, false), // tsWorking = false: PTS not available for all frames
+    videoio_encapsulate_params_t("video/big_buck_bunny.mpg", "mp4", 12, 13, true, true),
+    videoio_encapsulate_params_t("video/VID00003-20100701-2204.wmv", "wmv", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/VID00003-20100701-2204.mpg", "mp4", 12, 13, false, false), // tsWorking = false: PTS not available for all frames
+    videoio_encapsulate_params_t("video/VID00003-20100701-2204.avi", "mp4", 12, 13, false, false), // tsWorking = false: Unable to correctly set PTS when writing
+    videoio_encapsulate_params_t("video/VID00003-20100701-2204.3GP", "mp4", 51, 52, false, false), // tsWorking = false: Source with variable fps
+    videoio_encapsulate_params_t("video/sample_sorenson.avi", "mp4", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libxvid.mp4", "mp4", 3, 4, false, true),
+    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.mpeg2video.mp4", "mpg", 12, 13, false, true),
+    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.mjpeg.mp4", "mp4", 0, 5, false, true),
+    videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libx264.mp4", "ts", 15, 15, true, true),
+    videoio_encapsulate_params_t("../cv/tracking/faceocc2/data/faceocc2.webm", "webm", 128, 129, false, true),
+    videoio_encapsulate_params_t("../cv/video/1920x1080.avi", "mp4", 12, 13, false, true),
+    videoio_encapsulate_params_t("../cv/video/768x576.avi", "avi", 15, 16, false, true),
     // Not supported by with FFmpeg:
-    //videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libx265.mp4", "mp4", 15, 15),
-    //videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libvpx-vp9.mp4", "mp4", 15, 15),
-
+    //videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libx265.mp4", "mp4", 15, 15, true, true),
+    //videoio_encapsulate_params_t("video/sample_322x242_15frames.yuv420p.libvpx-vp9.mp4", "mp4", 15, 15, false, true),
 };
 
 INSTANTIATE_TEST_CASE_P(/**/, videoio_encapsulate, testing::ValuesIn(videoio_encapsulate_params));
